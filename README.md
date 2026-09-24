@@ -1,35 +1,33 @@
-# ODS · Rede de Interdependências · Santa Catarina
+# app-ods-udesc
 
-Protótipo funcional — Dissertação de Mestrado
-João Pedro Corrêa Pereira / PGCIN-UFSC
+Rede de associações entre indicadores ODS de Santa Catarina: protótipo navegável desenvolvido como prova de conceito da pesquisa de mestrado *Arquitetura de representação relacional de indicadores ODS: protótipo baseado em redes complexas para Santa Catarina* (PPGInfo/UDESC).
 
-## Como rodar
+**Acesse:** https://pedrocorrea12.github.io/app-ods-udesc/
 
-```bash
-# 1. Instalar dependências
-pip install -r requirements.txt
+## Conteúdo
 
-# 2. Rodar o app
-streamlit run app.py
-```
+| Arquivo | Descrição |
+|---|---|
+| `index.html` | Protótipo navegável da rede (página única, sem dependências externas). |
+| `notebook/mestrado_rede_indicadores_ods_sc.ipynb` | Notebook (Google Colab) com o procedimento analítico que gera a rede. |
 
-O app abre automaticamente em http://localhost:8501
+## Dados e método
 
-## Estrutura
+- **Fonte:** Índice de Desenvolvimento Sustentável das Cidades, Brasil (IDSC-BR), planilha de séries temporais.
+- **Recorte:** os 295 municípios de Santa Catarina, com registros de 2010 a 2025 (14 anos disponíveis).
+- **Seleção:** indicadores com cobertura mínima de 57%, o que resulta em 53 dos 100 indicadores.
+- **Agregação:** média municipal de cada indicador, sem padronização.
+- **Associações:** correlação de Spearman entre os 1.378 pares de indicadores. Um par vira aresta quando |r| ≥ 0,3 e p < 0,05, o que resulta em 152 arestas (82 positivas e 70 negativas).
+- **Métricas:** grau e centralidade de intermediação, comunidades pelo algoritmo de Louvain (100 execuções, estabilidade medida por NMI) e comparação com 1.000 redes Erdős–Rényi.
 
-```
-ods_app/
-├── app.py                  # Aplicação principal
-├── requirements.txt        # Dependências
-└── data/
-    ├── nodes.csv           # 54 indicadores + métricas topológicas
-    ├── edges.csv           # 154 arestas (sinergias e trade-offs)
-    ├── municipios_perfil.csv # 295 municípios × semáforo por indicador
-    ├── graph.pkl           # Grafo NetworkX serializado
-    └── metadata.json       # Metadados do projeto
-```
+As arestas representam associações estatísticas, não relações causais. O sinal da correlação indica a direção da associação e não equivale, por si só, a sinergia ou trade-off.
 
-## Telas
-- **Tela 1 — A Rede**: grafo interativo com filtros por comunidade, ODS e tipo de aresta
-- **Tela 2 — Hubs & Lacunas**: tabela de centralidade (em construção)
-- **Tela 3 — Perfil Municipal**: semáforo por município (em construção)
+## Como usar o protótipo
+
+- Clique em um indicador para ver suas associações, com o valor de r, e suas métricas.
+- Alterne a cor dos nós entre comunidade e ODS, e filtre as associações positivas ou negativas.
+- Use a roda do mouse para dar zoom e arraste para mover a rede.
+
+## Reproduzir a análise
+
+Abra o notebook no Google Colab e ajuste as variáveis `BASE` (pasta com `base_dados_idsc_sc.xlsx` e `dicionario_indicadores.xlsx`) e `OUTPUT` (pasta de resultados). As bibliotecas `python-louvain` e `pyvis` são instaladas pelo próprio notebook.

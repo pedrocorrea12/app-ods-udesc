@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rede de Indicadores ODS SC</title>
+<style>
+  :root{
+    color-scheme:light;
+    --bg:#ffffff; --surface:#ffffff; --ink:#000000; --muted:#333333; --faint:#666666;
+    --line:#999999; --pos:#1f5fa8; --neg:#b2182b; --focus:#0000ee; --halo:#ffffff;
+    --iso-stroke:#000000; --chip:#eeeeee;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 Arial,Helvetica,sans-serif}
+  .mono{font-variant-numeric:tabular-nums}
+  .app{display:grid;grid-template-rows:auto 1fr;height:100%;padding-inline:16px;padding-block:12px;gap:10px}
+
+  header{display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  .titulo h1{margin:0;font-size:18px;font-weight:bold}
+  .titulo p{margin:2px 0 0;color:var(--muted);font-size:13px}
+  .numeros{font-size:13px}
+  .controles{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;font-size:13px}
+  .seg{display:inline-flex;gap:3px}
+  .seg button{border:1px solid var(--line);background:#f0f0f0;color:var(--ink);font:inherit;font-size:13px;padding:2px 8px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:#000;color:#fff;border-color:#000}
+  .seg-rot{margin-right:4px}
+  .busca{position:relative}
+  .busca input{width:240px;max-width:100%;height:24px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;font-size:13px;padding:0 5px}
+  .busca ul{position:absolute;z-index:5;top:26px;left:0;min-width:320px;margin:0;padding:0;list-style:none;background:#fff;border:1px solid #000}
+  .busca li{padding:4px 6px;cursor:pointer;font-size:13px}
+  .busca li:hover,.busca li.ativo{background:var(--chip)}
+  button:focus-visible,input:focus-visible,li:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+
+  main{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:10px;min-height:0}
+  .palco{position:relative;border:1px solid var(--line);overflow:hidden;min-height:420px}
+  svg#rede{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+  svg#rede.arrastando{cursor:grabbing}
+  .aresta{fill:none}
+  .no circle{cursor:pointer}
+  .no text{font:8.5px Arial,Helvetica,sans-serif;fill:var(--ink);paint-order:stroke;stroke:var(--halo);stroke-width:3px;pointer-events:none}
+  .faixa-rot{font:11px Arial,Helvetica,sans-serif;fill:var(--faint)}
+  .faixa-linha{stroke:var(--line);stroke-dasharray:2 3}
+  .apagado{opacity:.08}
+  .no.apagado text{opacity:0}
+  .zoom{position:absolute;right:6px;bottom:6px;display:flex;gap:3px}
+  .zoom button{width:26px;height:24px;border:1px solid var(--line);background:#f0f0f0;color:var(--ink);font-size:14px;cursor:pointer;padding:0}
+  .legenda{position:absolute;left:6px;bottom:6px;display:flex;flex-wrap:wrap;gap:2px 10px;font-size:11px;color:var(--muted);max-width:calc(100% - 100px);background:#fff;padding:2px 4px}
+  .legenda span{display:inline-flex;align-items:center;gap:4px}
+  .legenda i{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .legenda .ln{width:16px;height:0;border-top:2px solid var(--pos);border-radius:0}
+  .legenda .ln.neg{border-top:2px dashed var(--neg)}
+  .dica{position:absolute;pointer-events:none;background:#fff;color:#000;border:1px solid #000;font-size:12px;padding:3px 6px;max-width:280px;z-index:4}
+
+  aside{border:1px solid var(--line);overflow:auto;padding:10px 12px;min-height:0;font-size:13px}
+  aside h2{font-size:13px;font-weight:bold;margin:16px 0 4px}
+  aside h2:first-child{margin-top:0}
+  .nota{color:var(--muted);margin:0}
+  .lista{list-style:none;margin:0;padding:0}
+  .lista li{display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:baseline;padding:3px 0;border-bottom:1px solid #e5e5e5;cursor:pointer}
+  .lista li:hover span:nth-child(2){text-decoration:underline}
+  .lista .v{color:var(--muted)}
+  .ods{display:inline-block;min-width:22px;padding:0 3px;text-align:center;color:#fff;font:bold 11px Arial,Helvetica,sans-serif}
+  .sinal{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .sinal.p{background:var(--pos)} .sinal.n{background:transparent;border:2px solid var(--neg)}
+  .det-topo{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+  .det-nome{font-size:15px;font-weight:bold;margin:0 0 4px}
+  .det-cod{color:var(--faint);font-size:12px}
+  .metricas{display:grid;grid-template-columns:auto 1fr;gap:1px 10px;margin-top:8px}
+  .metricas div{display:contents}
+  .metricas div span{color:var(--muted)}
+  .metricas div b{font-weight:normal}
+  .voltar{border:0;background:none;color:var(--focus);text-decoration:underline;font:inherit;padding:0;cursor:pointer;margin-bottom:10px}
+  .rodape{font-size:12px;color:var(--faint);margin-top:16px;padding-top:8px;border-top:1px solid var(--line)}
+
+  @media (max-width:860px){
+    .app{height:auto}
+    main{grid-template-columns:1fr}
+    .palco{height:70vh}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="titulo">
+      <h1>Rede de associações entre indicadores ODS</h1>
+      <p>Santa Catarina · 295 municípios · IDSC-BR</p>
+    </div>
+    <div class="numeros" id="numeros"></div>
+    <div class="controles">
+      <span><span class="seg-rot">Cor:</span>
+        <span class="seg" role="group" aria-label="Colorir nós por">
+          <button id="cor-com" aria-pressed="true">Comunidade</button><button id="cor-ods" aria-pressed="false">ODS</button>
+        </span></span>
+      <span><span class="seg-rot">Associações:</span>
+        <span class="seg" role="group" aria-label="Mostrar associações">
+          <button id="f-todas" aria-pressed="true">Todas</button><button id="f-pos" aria-pressed="false">Positivas</button><button id="f-neg" aria-pressed="false">Negativas</button>
+        </span></span>
+      <div class="busca">
+        <input id="busca" type="search" placeholder="Buscar indicador…" autocomplete="off" aria-label="Buscar indicador">
+        <ul id="sugestoes" hidden></ul>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="palco">
+      <svg id="rede" viewBox="0 0 1000 800" preserveAspectRatio="xMidYMid meet" aria-label="Rede de indicadores">
+        <g id="camada">
+          <line class="faixa-linha" x1="30" x2="970" y1="690" y2="690"></line>
+          <text class="faixa-rot" x="34" y="708">Fora do componente principal: componentes menores e indicadores sem associação</text>
+          <g id="g-arestas"></g>
+          <g id="g-nos"></g>
+        </g>
+      </svg>
+      <div class="legenda" id="legenda"></div>
+      <div class="zoom">
+        <button id="z-mais" aria-label="Aproximar">+</button><button id="z-menos" aria-label="Afastar">−</button><button id="z-reset" aria-label="Enquadrar a rede">⤢</button>
+      </div>
+      <div class="dica" id="dica" hidden></div>
+    </div>
+    <aside id="painel" aria-live="polite"></aside>
+  </main>
+</div>
+
+<script>
+const DADOS = {"nos": [{"id": "SDG1_1_P_F_CU", "nome": "Famílias inscritas no Cadastro Único para programas sociais (%)", "ods": 1, "cob": 0.7143, "grau": 10, "com": 1, "inter": 0.09762, "x": 287.3, "y": 335.9}, {"id": "SDG10_35_VLC_LGBT", "nome": "Violência contra a população LGBTQIA+ (100 mil habitantes)", "ods": 10, "cob": 0.7143, "grau": 6, "com": 4, "inter": 0.0003, "x": 678.0, "y": 191.2}, {"id": "SDG4_13_P_E_ACS", "nome": "Escolas com dependências adequadas a pessoas com deficiência (%)", "ods": 4, "cob": 0.7143, "grau": 2, "com": 3, "inter": 0.10242, "x": 684.4, "y": 498.1}, {"id": "SDG2_1_OBS_INF", "nome": "Obesidade infantil (%)", "ods": 2, "cob": 0.7143, "grau": 1, "com": 1, "inter": 0.0, "x": 60.0, "y": 535.2}, {"id": "SDG4_27_R_M_D_EF", "nome": "Razão entre o número de matrículas e professores no ensino fundamental (taxa)", "ods": 4, "cob": 0.7143, "grau": 1, "com": 3, "inter": 0.0, "x": 867.0, "y": 650.0}, {"id": "SDG4_1_P_EF_INT", "nome": "Acesso à internet nas escolas do ensino fundamental e médio, na rede pública (%)", "ods": 4, "cob": 0.7143, "grau": 6, "com": 1, "inter": 0.15157, "x": 605.0, "y": 410.8}, {"id": "SDG3_2_INC_DNG", "nome": "Incidência de dengue (100 mil habitantes)", "ods": 3, "cob": 0.7143, "grau": 3, "com": 2, "inter": 0.0256, "x": 579.7, "y": 114.5}, {"id": "SDG4_3_TDI_EF_RP", "nome": "Taxa de distorção idade-série no Ensino Fundamental - rede pública", "ods": 4, "cob": 0.7143, "grau": 6, "com": 1, "inter": 0.02478, "x": 419.6, "y": 383.3}, {"id": "SDG9_2_EMP_INT", "nome": "Participação dos empregos formais em atividades intensivas em conhecimento e tecnologia (%)", "ods": 9, "cob": 0.7143, "grau": 13, "com": 4, "inter": 0.01504, "x": 785.8, "y": 242.9}, {"id": "SDG8_9_T_OCUP_FORM", "nome": "Ocupação formal das pessoas com 16 anos ou mais de idade (taxa)", "ods": 8, "cob": 0.7143, "grau": 9, "com": 4, "inter": 0.00578, "x": 778.7, "y": 195.0}, {"id": "SDG4_26_R_M_D_PE", "nome": "Razão entre o número de matrículas e professores na pré-escola (taxa)", "ods": 4, "cob": 0.7143, "grau": 2, "com": 3, "inter": 0.05263, "x": 775.2, "y": 576.1}, {"id": "SDG6_1_IN_DRSAI", "nome": "Doenças relacionadas ao saneamento ambiental inadequado (100 mil habitantes)", "ods": 6, "cob": 0.7143, "grau": 3, "com": 4, "inter": 0.0, "x": 827.1, "y": 363.1}, {"id": "SDG3_9_INC_TRB", "nome": "Incidência de tuberculose (100 mil habitantes)", "ods": 3, "cob": 0.7143, "grau": 11, "com": 4, "inter": 0.02518, "x": 519.8, "y": 253.1}, {"id": "SDG3_32_UBS", "nome": "Unidades Básicas de Saúde (mil habitantes)", "ods": 3, "cob": 0.7143, "grau": 10, "com": 4, "inter": 0.00511, "x": 835.8, "y": 263.6}, {"id": "SDG4_14B_P_E_AEE", "nome": "Escolas com recursos para Atendimento Educacional Especializado (taxa)", "ods": 4, "cob": 0.7143, "grau": 3, "com": 4, "inter": 0.0, "x": 910.7, "y": 336.7}, {"id": "SDG2_3_DSNT_INF", "nome": "Desnutrição infantil (%)", "ods": 2, "cob": 0.714, "grau": 2, "com": 1, "inter": 0.05263, "x": 213.7, "y": 481.8}, {"id": "SDG10_22_ADER", "nome": "Diferença na taxa de distorção idade-série nos anos iniciais do Ensino Fundamental entre PP e B", "ods": 10, "cob": 0.7123, "grau": 0, "com": 0, "inter": 0, "x": 290, "y": 738}, {"id": "SDG4_4_PCT_CRECHE", "nome": "Percentual de crianças de 0 a 3 anos matrículadas em creches", "ods": 4, "cob": 0.7102, "grau": 2, "com": 1, "inter": 0.0, "x": 155.6, "y": 253.4}, {"id": "SDG6_6_SERV_AG", "nome": "População total atendida com abastecimento de água (%)", "ods": 6, "cob": 0.7005, "grau": 16, "com": 4, "inter": 0.04062, "x": 630.6, "y": 262.8}, {"id": "SDG3_3_P_NV_7PN", "nome": "Pré-natal insuficiente (%)", "ods": 3, "cob": 0.6429, "grau": 4, "com": 1, "inter": 0.10242, "x": 345.1, "y": 415.4}, {"id": "SDG13_6_TRNS_SL", "nome": "Percentual do município desflorestado (%)", "ods": 13, "cob": 0.6429, "grau": 0, "com": 0, "inter": 0, "x": 368, "y": 772}, {"id": "SDG15_2_FLOR", "nome": "Hectare de áreas florestadas e naturais por habitante", "ods": 15, "cob": 0.6429, "grau": 15, "com": 4, "inter": 0.19519, "x": 590.7, "y": 213.4}, {"id": "SDG16_1_OB_HM", "nome": "Homicídio juvenil masculino (100 mil habitantes)", "ods": 16, "cob": 0.6429, "grau": 6, "com": 1, "inter": 0.00287, "x": 371.5, "y": 337.5}, {"id": "SDG11_33_M_TRNS", "nome": "Mortes no trânsito (100 mil habitantes)", "ods": 11, "cob": 0.6429, "grau": 0, "com": 0, "inter": 0, "x": 446, "y": 738}, {"id": "SDG13_2_CO2", "nome": "Emissões de CO²e per capita", "ods": 13, "cob": 0.6429, "grau": 17, "com": 4, "inter": 0.0501, "x": 746.3, "y": 282.4}, {"id": "SDG16_4_TX_HMC", "nome": "Taxa de homicídio (100 mil habitantes)", "ods": 16, "cob": 0.6429, "grau": 6, "com": 1, "inter": 0.00287, "x": 338.5, "y": 299.1}, {"id": "SDG3_18_T_M_NT", "nome": "Mortalidade neonatal (crianças de 0 a 27 dias) (mil nascidas vivas)", "ods": 3, "cob": 0.6429, "grau": 2, "com": 0, "inter": 0, "x": 67.5, "y": 761.0}, {"id": "SDG3_17_T_M_5A", "nome": "Mortalidade na infância (número de óbitos infantis com 0 a 4 anos de idade, por mil nascidos vivos)", "ods": 3, "cob": 0.6429, "grau": 2, "com": 0, "inter": 0, "x": 112.5, "y": 761.0}, {"id": "SDG5_6_RND_GEN", "nome": "Desigualdade de salário por sexo (salário de mulheres / salário de homens)", "ods": 5, "cob": 0.6429, "grau": 5, "com": 4, "inter": 0.0, "x": 892.5, "y": 218.5}, {"id": "SDG5_8_TX_FMNC", "nome": "Taxa de feminicídio (100 mil mulheres)", "ods": 5, "cob": 0.6429, "grau": 0, "com": 0, "inter": 0, "x": 524, "y": 772}, {"id": "SDG3_8_GRV", "nome": "Gravidez na adolescência (%)", "ods": 3, "cob": 0.6429, "grau": 8, "com": 1, "inter": 0.06534, "x": 379.7, "y": 256.6}, {"id": "SDG3_6_ID_MD_M", "nome": "Idade média ao morrer", "ods": 3, "cob": 0.6429, "grau": 16, "com": 1, "inter": 0.14049, "x": 500.5, "y": 315.8}, {"id": "SDG3_22_T_M_DC", "nome": "Mortalidade prematura por doenças crônicas não-transmissíveis (100 mil habitantes de 30 a 69 anos)", "ods": 3, "cob": 0.6429, "grau": 3, "com": 4, "inter": 0.0, "x": 698.9, "y": 149.6}, {"id": "SDG3_29_SF", "nome": "População atendida por equipes de saúde da família (%)", "ods": 3, "cob": 0.6429, "grau": 5, "com": 4, "inter": 0.0, "x": 940.0, "y": 271.1}, {"id": "SDG3_3_HPT", "nome": "Detecção de hepatite (100 mil habitantes)", "ods": 3, "cob": 0.6429, "grau": 3, "com": 2, "inter": 0.0256, "x": 469.3, "y": 130.7}, {"id": "SDG10_3_RZHOM", "nome": "Diferença na taxa de homicídios entre PP e BA", "ods": 10, "cob": 0.6429, "grau": 0, "com": 0, "inter": 0, "x": 602, "y": 738}, {"id": "SDG3_13_SCD", "nome": "Mortalidade por suicídio (100 mil habitantes)", "ods": 3, "cob": 0.6429, "grau": 1, "com": 1, "inter": 0.0, "x": 84.4, "y": 345.8}, {"id": "SDG3_15_T_M_INF", "nome": "Mortalidade infantil (crianças menores de 1 ano) (mil nascidas vivas)", "ods": 3, "cob": 0.6429, "grau": 2, "com": 0, "inter": 0, "x": 90.0, "y": 728.0}, {"id": "SDG3_16_M_MAT", "nome": "Mortalidade materna (mil nascidos vivos)", "ods": 3, "cob": 0.6429, "grau": 7, "com": 4, "inter": 0.00118, "x": 670.5, "y": 343.3}, {"id": "SDG16_3_M_ARM_FG", "nome": "Mortes por armas de fogo (100 mil habitantes)", "ods": 16, "cob": 0.6429, "grau": 6, "com": 1, "inter": 0.00342, "x": 300.9, "y": 261.4}, {"id": "SDG3_19_T_M_AIDS", "nome": "Mortalidade por Aids (100 mil habitantes)", "ods": 3, "cob": 0.6429, "grau": 13, "com": 4, "inter": 0.05216, "x": 567.2, "y": 299.9}, {"id": "SDG4_7_FR_E_4A17_AJ", "nome": "Crianças e jovens de 4 a 17 anos na escola (%)", "ods": 4, "cob": 0.6424, "grau": 17, "com": 4, "inter": 0.07302, "x": 678.9, "y": 253.5}, {"id": "SDG17_1_INVST_PB", "nome": "Investimento público (R$ per capita)", "ods": 17, "cob": 0.6412, "grau": 11, "com": 4, "inter": 0.03158, "x": 740.4, "y": 346.9}, {"id": "SDG2_2_P_NV_BPN", "nome": "Baixo peso ao nascer (%)", "ods": 2, "cob": 0.6402, "grau": 0, "com": 0, "inter": 0, "x": 680, "y": 772}, {"id": "SDG17_3_P_RC_TRB", "nome": "Total de receitas municipais arrecadadas (%)", "ods": 17, "cob": 0.639, "grau": 19, "com": 4, "inter": 0.09034, "x": 706.7, "y": 286.4}, {"id": "SDG6_4_PRD_AG", "nome": "Perda de água tratada na distribuição", "ods": 6, "cob": 0.6278, "grau": 0, "com": 0, "inter": 0, "x": 758, "y": 738}, {"id": "SDG10_21_GRV", "nome": "Diferença na taxa de gravidez na adolescência entre mães PP e BA", "ods": 10, "cob": 0.6138, "grau": 0, "com": 0, "inter": 0, "x": 836, "y": 772}, {"id": "SDG12_2_RSD_SLD", "nome": "Resíduos sólidos domiciliares coletados per capita (kg/ dia/ hab) ", "ods": 12, "cob": 0.5799, "grau": 2, "com": 2, "inter": 0.0, "x": 489.7, "y": 40.0}, {"id": "SDG4_18_D_SUP_EI", "nome": "Professores com formação em nível superior - Educação Infantil - rede pública (%)", "ods": 4, "cob": 0.5714, "grau": 1, "com": 0, "inter": 0, "x": 205.0, "y": 728.0}, {"id": "SDG4_19_D_SUP_EF", "nome": "Professores com formação em nível superior - Ensino Fundamental - rede pública (%)", "ods": 4, "cob": 0.5714, "grau": 1, "com": 0, "inter": 0, "x": 205.0, "y": 772.0}, {"id": "SDG3_1_C_VCN", "nome": "Cobertura vacinal (%)", "ods": 3, "cob": 0.5714, "grau": 12, "com": 1, "inter": 0.15085, "x": 538.7, "y": 351.6}, {"id": "SDG9_1_INFRA", "nome": "Investimento público em infraestrutura urbana por habitante (R$ per capita)", "ods": 9, "cob": 0.5714, "grau": 0, "com": 0, "inter": 0, "x": 914, "y": 738}, {"id": "SDG3_27_DSP_SAU", "nome": "Orçamento municipal para a saúde (em reais, per capita)", "ods": 3, "cob": 0.5702, "grau": 14, "com": 4, "inter": 0.08043, "x": 661.1, "y": 318.2}], "arestas": [{"s": "SDG16_1_OB_HM", "t": "SDG16_4_TX_HMC", "r": 0.9052}, {"s": "SDG3_17_T_M_5A", "t": "SDG3_15_T_M_INF", "r": 0.8978}, {"s": "SDG3_18_T_M_NT", "t": "SDG3_15_T_M_INF", "r": 0.8452}, {"s": "SDG16_4_TX_HMC", "t": "SDG16_3_M_ARM_FG", "r": 0.8186}, {"s": "SDG3_18_T_M_NT", "t": "SDG3_17_T_M_5A", "r": 0.8172}, {"s": "SDG16_1_OB_HM", "t": "SDG16_3_M_ARM_FG", "r": 0.7893}, {"s": "SDG13_2_CO2", "t": "SDG17_3_P_RC_TRB", "r": -0.6896}, {"s": "SDG6_6_SERV_AG", "t": "SDG17_3_P_RC_TRB", "r": 0.675}, {"s": "SDG17_1_INVST_PB", "t": "SDG3_27_DSP_SAU", "r": 0.6592}, {"s": "SDG4_18_D_SUP_EI", "t": "SDG4_19_D_SUP_EF", "r": 0.6478}, {"s": "SDG15_2_FLOR", "t": "SDG13_2_CO2", "r": 0.6191}, {"s": "SDG3_9_INC_TRB", "t": "SDG13_2_CO2", "r": -0.6051}, {"s": "SDG8_9_T_OCUP_FORM", "t": "SDG5_6_RND_GEN", "r": -0.603}, {"s": "SDG4_7_FR_E_4A17_AJ", "t": "SDG3_27_DSP_SAU", "r": 0.5944}, {"s": "SDG15_2_FLOR", "t": "SDG17_3_P_RC_TRB", "r": -0.5878}, {"s": "SDG4_7_FR_E_4A17_AJ", "t": "SDG17_1_INVST_PB", "r": 0.5862}, {"s": "SDG17_3_P_RC_TRB", "t": "SDG3_27_DSP_SAU", "r": -0.5844}, {"s": "SDG9_2_EMP_INT", "t": "SDG17_3_P_RC_TRB", "r": 0.5724}, {"s": "SDG4_7_FR_E_4A17_AJ", "t": "SDG17_3_P_RC_TRB", "r": -0.5544}, {"s": "SDG16_4_TX_HMC", "t": "SDG3_6_ID_MD_M", "r": -0.5499}, {"s": "SDG6_6_SERV_AG", "t": "SDG13_2_CO2", "r": -0.5467}, {"s": "SDG13_2_CO2", "t": "SDG3_27_DSP_SAU", "r": 0.5432}, {"s": "SDG3_19_T_M_AIDS", "t": "SDG17_3_P_RC_TRB", "r": 0.5423}, {"s": "SDG13_2_CO2", "t": "SDG4_7_FR_E_4A17_AJ", "r": 0.5416}, {"s": "SDG3_2_INC_DNG", "t": "SDG3_3_HPT", "r": 0.5395}, {"s": "SDG3_32_UBS", "t": "SDG17_3_P_RC_TRB", "r": -0.537}, {"s": "SDG17_1_INVST_PB", "t": "SDG17_3_P_RC_TRB", "r": -0.5275}, {"s": "SDG6_6_SERV_AG", "t": "SDG15_2_FLOR", "r": -0.5244}, {"s": "SDG2_1_OBS_INF", "t": "SDG2_3_DSNT_INF", "r": 0.5184}, {"s": "SDG8_9_T_OCUP_FORM", "t": "SDG17_3_P_RC_TRB", "r": 0.5135}, {"s": "SDG16_1_OB_HM", "t": "SDG3_6_ID_MD_M", "r": -0.4959}, {"s": "SDG3_6_ID_MD_M", "t": "SDG16_3_M_ARM_FG", "r": -0.4922}, {"s": "SDG8_9_T_OCUP_FORM", "t": "SDG6_6_SERV_AG", "r": 0.4913}, {"s": "SDG3_9_INC_TRB", "t": "SDG17_3_P_RC_TRB", "r": 0.4824}, {"s": "SDG13_2_CO2", "t": "SDG3_19_T_M_AIDS", "r": -0.4639}, {"s": "SDG4_4_PCT_CRECHE", "t": "SDG3_8_GRV", "r": -0.4571}, {"s": "SDG9_2_EMP_INT", "t": "SDG4_7_FR_E_4A17_AJ", "r": -0.4535}, {"s": "SDG13_2_CO2", "t": "SDG17_1_INVST_PB", "r": 0.4524}, {"s": "SDG10_35_VLC_LGBT", "t": "SDG17_3_P_RC_TRB", "r": 0.4483}, {"s": "SDG16_4_TX_HMC", "t": "SDG3_8_GRV", "r": 0.4458}, {"s": "SDG9_2_EMP_INT", "t": "SDG8_9_T_OCUP_FORM", "r": 0.4452}, {"s": "SDG8_9_T_OCUP_FORM", "t": "SDG13_2_CO2", "r": -0.4451}, {"s": "SDG8_9_T_OCUP_FORM", "t": "SDG4_7_FR_E_4A17_AJ", "r": -0.4447}, {"s": "SDG10_35_VLC_LGBT", "t": "SDG6_6_SERV_AG", "r": 0.4419}, {"s": "SDG3_8_GRV", "t": "SDG3_6_ID_MD_M", "r": -0.4377}, {"s": "SDG1_1_P_F_CU", "t": "SDG3_6_ID_MD_M", "r": -0.4344}, {"s": "SDG3_9_INC_TRB", "t": "SDG6_6_SERV_AG", "r": 0.4325}, {"s": "SDG3_6_ID_MD_M", "t": "SDG4_7_FR_E_4A17_AJ", "r": 0.4267}, {"s": "SDG9_2_EMP_INT", "t": "SDG3_27_DSP_SAU", "r": -0.4266}, {"s": "SDG3_9_INC_TRB", "t": "SDG3_19_T_M_AIDS", "r": 0.4259}, {"s": "SDG3_29_SF", "t": "SDG4_7_FR_E_4A17_AJ", "r": 0.4246}, {"s": "SDG9_2_EMP_INT", "t": "SDG13_2_CO2", "r": -0.4232}, {"s": "SDG1_1_P_F_CU", "t": "SDG3_8_GRV", "r": 0.4222}, {"s": "SDG6_1_IN_DRSAI", "t": "SDG13_2_CO2", "r": 0.4216}, {"s": "SDG3_32_UBS", "t": "SDG17_1_INVST_PB", "r": 0.4196}, {"s": "SDG17_3_P_RC_TRB", "t": "SDG3_1_C_VCN", "r": -0.4185}, {"s": "SDG3_9_INC_TRB", "t": "SDG4_7_FR_E_4A17_AJ", "r": -0.4143}, {"s": "SDG9_2_EMP_INT", "t": "SDG6_6_SERV_AG", "r": 0.4138}, {"s": "SDG6_6_SERV_AG", "t": "SDG4_7_FR_E_4A17_AJ", "r": -0.4126}, {"s": "SDG3_3_HPT", "t": "SDG12_2_RSD_SLD", "r": 0.4115}, {"s": "SDG3_32_UBS", "t": "SDG3_27_DSP_SAU", "r": 0.4059}, {"s": "SDG6_6_SERV_AG", "t": "SDG3_19_T_M_AIDS", "r": 0.4054}, {"s": "SDG10_35_VLC_LGBT", "t": "SDG13_2_CO2", "r": -0.4009}, {"s": "SDG3_32_UBS", "t": "SDG13_2_CO2", "r": 0.4005}, {"s": "SDG15_2_FLOR", "t": "SDG3_19_T_M_AIDS", "r": -0.3969}, {"s": "SDG9_2_EMP_INT", "t": "SDG17_1_INVST_PB", "r": -0.3929}, {"s": "SDG3_9_INC_TRB", "t": "SDG15_2_FLOR", "r": -0.3923}, {"s": "SDG3_19_T_M_AIDS", "t": "SDG3_1_C_VCN", "r": -0.3918}, {"s": "SDG1_1_P_F_CU", "t": "SDG3_1_C_VCN", "r": -0.3832}, {"s": "SDG15_2_FLOR", "t": "SDG3_3_HPT", "r": -0.3829}, {"s": "SDG3_2_INC_DNG", "t": "SDG15_2_FLOR", "r": -0.3823}, {"s": "SDG9_2_EMP_INT", "t": "SDG15_2_FLOR", "r": -0.3817}, {"s": "SDG9_2_EMP_INT", "t": "SDG3_32_UBS", "r": -0.3811}, {"s": "SDG4_14B_P_E_AEE", "t": "SDG17_3_P_RC_TRB", "r": -0.3806}, {"s": "SDG16_1_OB_HM", "t": "SDG3_8_GRV", "r": 0.3805}, {"s": "SDG4_3_TDI_EF_RP", "t": "SDG3_6_ID_MD_M", "r": -0.3791}, {"s": "SDG3_8_GRV", "t": "SDG16_3_M_ARM_FG", "r": 0.3754}, {"s": "SDG3_32_UBS", "t": "SDG4_7_FR_E_4A17_AJ", "r": 0.3741}, {"s": "SDG3_19_T_M_AIDS", "t": "SDG4_7_FR_E_4A17_AJ", "r": -0.3724}, {"s": "SDG8_9_T_OCUP_FORM", "t": "SDG15_2_FLOR", "r": -0.3697}, {"s": "SDG13_2_CO2", "t": "SDG3_6_ID_MD_M", "r": 0.3696}, {"s": "SDG13_2_CO2", "t": "SDG3_16_M_MAT", "r": -0.3668}, {"s": "SDG3_32_UBS", "t": "SDG6_6_SERV_AG", "r": -0.3668}, {"s": "SDG3_6_ID_MD_M", "t": "SDG3_19_T_M_AIDS", "r": -0.3657}, {"s": "SDG3_22_T_M_DC", "t": "SDG4_7_FR_E_4A17_AJ", "r": 0.3653}, {"s": "SDG8_9_T_OCUP_FORM", "t": "SDG3_22_T_M_DC", "r": -0.3632}, {"s": "SDG1_1_P_F_CU", "t": "SDG3_3_P_NV_7PN", "r": 0.3631}, {"s": "SDG3_9_INC_TRB", "t": "SDG3_27_DSP_SAU", "r": -0.3625}, {"s": "SDG6_6_SERV_AG", "t": "SDG5_6_RND_GEN", "r": -0.362}, {"s": "SDG3_16_M_MAT", "t": "SDG17_3_P_RC_TRB", "r": 0.3607}, {"s": "SDG3_2_INC_DNG", "t": "SDG12_2_RSD_SLD", "r": 0.3585}, {"s": "SDG4_1_P_EF_INT", "t": "SDG3_27_DSP_SAU", "r": 0.356}, {"s": "SDG3_1_C_VCN", "t": "SDG3_27_DSP_SAU", "r": 0.3558}, {"s": "SDG4_3_TDI_EF_RP", "t": "SDG3_3_P_NV_7PN", "r": 0.355}, {"s": "SDG4_14B_P_E_AEE", "t": "SDG13_2_CO2", "r": 0.3548}, {"s": "SDG10_35_VLC_LGBT", "t": "SDG15_2_FLOR", "r": -0.3545}, {"s": "SDG15_2_FLOR", "t": "SDG3_27_DSP_SAU", "r": 0.3543}, {"s": "SDG4_14B_P_E_AEE", "t": "SDG3_27_DSP_SAU", "r": 0.3541}, {"s": "SDG13_2_CO2", "t": "SDG3_29_SF", "r": 0.3527}, {"s": "SDG3_32_UBS", "t": "SDG15_2_FLOR", "r": 0.3526}, {"s": "SDG3_29_SF", "t": "SDG17_3_P_RC_TRB", "r": -0.3488}, {"s": "SDG3_9_INC_TRB", "t": "SDG3_1_C_VCN", "r": -0.3486}, {"s": "SDG15_2_FLOR", "t": "SDG4_7_FR_E_4A17_AJ", "r": 0.3485}, {"s": "SDG1_1_P_F_CU", "t": "SDG16_1_OB_HM", "r": 0.3478}, {"s": "SDG3_19_T_M_AIDS", "t": "SDG3_27_DSP_SAU", "r": -0.3466}, {"s": "SDG4_3_TDI_EF_RP", "t": "SDG3_1_C_VCN", "r": -0.3456}, {"s": "SDG1_1_P_F_CU", "t": "SDG16_4_TX_HMC", "r": 0.3441}, {"s": "SDG1_1_P_F_CU", "t": "SDG3_13_SCD", "r": -0.3439}, {"s": "SDG4_13_P_E_ACS", "t": "SDG4_1_P_EF_INT", "r": 0.3398}, {"s": "SDG6_1_IN_DRSAI", "t": "SDG17_3_P_RC_TRB", "r": -0.3382}, {"s": "SDG3_32_UBS", "t": "SDG3_29_SF", "r": 0.3378}, {"s": "SDG5_6_RND_GEN", "t": "SDG4_7_FR_E_4A17_AJ", "r": 0.3343}, {"s": "SDG3_16_M_MAT", "t": "SDG4_7_FR_E_4A17_AJ", "r": -0.3343}, {"s": "SDG10_35_VLC_LGBT", "t": "SDG9_2_EMP_INT", "r": 0.3343}, {"s": "SDG4_7_FR_E_4A17_AJ", "t": "SDG3_1_C_VCN", "r": 0.3323}, {"s": "SDG1_1_P_F_CU", "t": "SDG16_3_M_ARM_FG", "r": 0.3312}, {"s": "SDG3_9_INC_TRB", "t": "SDG16_3_M_ARM_FG", "r": 0.331}, {"s": "SDG16_1_OB_HM", "t": "SDG3_19_T_M_AIDS", "r": 0.331}, {"s": "SDG4_3_TDI_EF_RP", "t": "SDG3_8_GRV", "r": 0.3304}, {"s": "SDG4_1_P_EF_INT", "t": "SDG17_1_INVST_PB", "r": 0.3292}, {"s": "SDG9_2_EMP_INT", "t": "SDG5_6_RND_GEN", "r": -0.3286}, {"s": "SDG3_3_P_NV_7PN", "t": "SDG3_1_C_VCN", "r": -0.3277}, {"s": "SDG1_1_P_F_CU", "t": "SDG4_4_PCT_CRECHE", "r": -0.3268}, {"s": "SDG6_1_IN_DRSAI", "t": "SDG3_19_T_M_AIDS", "r": -0.3252}, {"s": "SDG3_6_ID_MD_M", "t": "SDG17_3_P_RC_TRB", "r": -0.3222}, {"s": "SDG6_6_SERV_AG", "t": "SDG3_16_M_MAT", "r": 0.3204}, {"s": "SDG15_2_FLOR", "t": "SDG3_8_GRV", "r": 0.3191}, {"s": "SDG6_6_SERV_AG", "t": "SDG3_6_ID_MD_M", "r": -0.3179}, {"s": "SDG3_9_INC_TRB", "t": "SDG3_6_ID_MD_M", "r": -0.3177}, {"s": "SDG10_35_VLC_LGBT", "t": "SDG3_9_INC_TRB", "r": 0.3171}, {"s": "SDG1_1_P_F_CU", "t": "SDG4_3_TDI_EF_RP", "r": 0.317}, {"s": "SDG15_2_FLOR", "t": "SDG3_22_T_M_DC", "r": 0.3166}, {"s": "SDG5_6_RND_GEN", "t": "SDG17_3_P_RC_TRB", "r": -0.3161}, {"s": "SDG4_13_P_E_ACS", "t": "SDG4_26_R_M_D_PE", "r": 0.3138}, {"s": "SDG4_1_P_EF_INT", "t": "SDG4_3_TDI_EF_RP", "r": -0.3138}, {"s": "SDG3_6_ID_MD_M", "t": "SDG3_1_C_VCN", "r": 0.3134}, {"s": "SDG17_1_INVST_PB", "t": "SDG3_1_C_VCN", "r": 0.3123}, {"s": "SDG4_27_R_M_D_EF", "t": "SDG4_26_R_M_D_PE", "r": 0.3123}, {"s": "SDG4_1_P_EF_INT", "t": "SDG3_6_ID_MD_M", "r": 0.3115}, {"s": "SDG6_6_SERV_AG", "t": "SDG17_1_INVST_PB", "r": -0.3076}, {"s": "SDG4_1_P_EF_INT", "t": "SDG3_1_C_VCN", "r": 0.3075}, {"s": "SDG8_9_T_OCUP_FORM", "t": "SDG3_32_UBS", "r": -0.3073}, {"s": "SDG3_16_M_MAT", "t": "SDG17_1_INVST_PB", "r": -0.3049}, {"s": "SDG3_6_ID_MD_M", "t": "SDG3_27_DSP_SAU", "r": 0.304}, {"s": "SDG6_6_SERV_AG", "t": "SDG3_27_DSP_SAU", "r": -0.3032}, {"s": "SDG9_2_EMP_INT", "t": "SDG3_16_M_MAT", "r": 0.3031}, {"s": "SDG3_19_T_M_AIDS", "t": "SDG17_1_INVST_PB", "r": -0.3022}, {"s": "SDG6_6_SERV_AG", "t": "SDG3_1_C_VCN", "r": -0.3018}, {"s": "SDG9_2_EMP_INT", "t": "SDG3_29_SF", "r": -0.3013}, {"s": "SDG16_4_TX_HMC", "t": "SDG3_19_T_M_AIDS", "r": 0.3009}, {"s": "SDG3_6_ID_MD_M", "t": "SDG3_16_M_MAT", "r": -0.3006}, {"s": "SDG2_3_DSNT_INF", "t": "SDG3_3_P_NV_7PN", "r": 0.3003}]};
+
+const CORES_ODS = {1:'#E5243B',2:'#DDA63A',3:'#4C9F38',4:'#C5192D',5:'#FF3A21',6:'#26BDE2',7:'#FCC30B',8:'#A21942',9:'#FD6925',10:'#DD1367',11:'#FD9D24',12:'#BF8B2E',13:'#3F7E44',14:'#0A97D9',15:'#56C02B',16:'#00689D',17:'#19486A'};
+const CORES_COM = {1:'#66c2a5',2:'#fc8d62',3:'#8da0cb',4:'#e78ac3',0:'#b9c0c4'};
+const R_MIN = 0.3;
+const NS = 'http://www.w3.org/2000/svg';
+
+const nos = DADOS.nos, arestas = DADOS.arestas;
+const porId = Object.fromEntries(nos.map(n => [n.id, n]));
+const vizinhos = Object.fromEntries(nos.map(n => [n.id, []]));
+arestas.forEach(a => { vizinhos[a.s].push({id:a.t, r:a.r}); vizinhos[a.t].push({id:a.s, r:a.r}); });
+const principal = nos.filter(n => n.com > 0);
+const maxInter = Math.max(...nos.map(n => n.inter));
+const rankInter = [...principal].sort((a,b) => b.inter - a.inter).map(n => n.id);
+
+let modoCor = 'com', filtro = 'todas', selecionado = null, emFoco = null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = (v, d=2) => v.toLocaleString('pt-BR', {minimumFractionDigits:d, maximumFractionDigits:d});
+const curto = id => id.replace(/^SDG/, '');
+const cor = n => modoCor === 'ods' ? CORES_ODS[n.ods] : CORES_COM[n.com];
+const raio = n => n.com > 0 ? 5 + 17 * Math.sqrt(n.inter / maxInter) : 5;
+const badge = o => `<span class="ods" style="background:${CORES_ODS[o]}">${o}</span>`;
+
+// números do cabeçalho
+const nPos = arestas.filter(a => a.r > 0).length;
+$('numeros').textContent = `${nos.length} indicadores, ${arestas.length} associações (${nPos} positivas, ${arestas.length - nPos} negativas).`;
+
+// desenho
+const gA = $('g-arestas'), gN = $('g-nos');
+const elAresta = arestas.map(a => {
+  const s = porId[a.s], t = porId[a.t];
+  const l = document.createElementNS(NS, 'line');
+  l.setAttribute('x1', s.x); l.setAttribute('y1', s.y); l.setAttribute('x2', t.x); l.setAttribute('y2', t.y);
+  l.setAttribute('class', 'aresta');
+  l.setAttribute('stroke', a.r > 0 ? 'var(--pos)' : 'var(--neg)');
+  l.setAttribute('stroke-width', (0.7 + 5 * (Math.abs(a.r) - R_MIN)).toFixed(2));
+  l.setAttribute('stroke-opacity', '0.5');
+  if (a.r < 0) l.setAttribute('stroke-dasharray', '5 3');
+  gA.appendChild(l);
+  return {a, l};
+});
+const elNo = {};
+[...nos].sort((a,b) => raio(a) - raio(b)).forEach(n => {
+  const g = document.createElementNS(NS, 'g');
+  g.setAttribute('class', 'no'); g.setAttribute('tabindex', '0');
+  g.setAttribute('role', 'button'); g.setAttribute('aria-label', n.nome);
+  const c = document.createElementNS(NS, 'circle');
+  c.setAttribute('cx', n.x); c.setAttribute('cy', n.y); c.setAttribute('r', raio(n));
+  c.setAttribute('stroke', n.grau === 0 ? 'var(--iso-stroke)' : 'var(--surface)');
+  c.setAttribute('stroke-width', n.grau === 0 ? 1.2 : 1.5);
+  const t = document.createElementNS(NS, 'text');
+  t.setAttribute('x', n.x + raio(n) + 2); t.setAttribute('y', n.y + 3);
+  t.textContent = curto(n.id);
+  g.append(c, t); gN.appendChild(g);
+  g.addEventListener('mouseenter', e => { emFoco = n.id; destacar(); dica(e, n); });
+  g.addEventListener('mousemove', e => dica(e, n));
+  g.addEventListener('mouseleave', () => { emFoco = null; destacar(); $('dica').hidden = true; });
+  g.addEventListener('click', e => { e.stopPropagation(); selecionar(n.id); });
+  g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selecionar(n.id); } });
+  elNo[n.id] = {g, c};
+});
+
+function pintar(){
+  nos.forEach(n => elNo[n.id].c.setAttribute('fill', cor(n)));
+  const itens = modoCor === 'ods'
+    ? [...new Set(nos.map(n => n.ods))].sort((a,b) => a-b).map(o => `<span><i style="background:${CORES_ODS[o]}"></i>${o}</span>`)
+    : [1,2,3,4].map(c => `<span><i style="background:${CORES_COM[c]}"></i>Comunidade ${c}</span>`).concat(`<span><i style="background:${CORES_COM[0]}"></i>Fora do principal</span>`);
+  $('legenda').innerHTML = itens.join('') + '<span><i class="ln"></i>positiva</span><span><i class="ln neg"></i>negativa</span>';
+}
+
+const passa = a => filtro === 'todas' || (filtro === 'pos' ? a.r > 0 : a.r < 0);
+
+function destacar(){
+  const foco = emFoco || selecionado;
+  const viz = foco ? new Set([foco, ...vizinhos[foco].filter(v => passa({r:v.r})).map(v => v.id)]) : null;
+  elAresta.forEach(({a, l}) => {
+    const visivel = passa(a);
+    l.style.display = visivel ? '' : 'none';
+    l.classList.toggle('apagado', !!foco && !(a.s === foco || a.t === foco));
+  });
+  nos.forEach(n => elNo[n.id].g.classList.toggle('apagado', !!viz && !viz.has(n.id)));
+}
+
+function dica(e, n){
+  const d = $('dica'), caixa = d.parentElement.getBoundingClientRect();
+  d.innerHTML = `${esc(n.nome)}<br><span class="mono" style="opacity:.7">ODS ${n.ods} · grau ${n.grau}</span>`;
+  d.hidden = false;
+  const x = Math.min(e.clientX - caixa.left + 14, caixa.width - 290);
+  d.style.left = Math.max(8, x) + 'px'; d.style.top = (e.clientY - caixa.top + 14) + 'px';
+}
+
+// painel
+function itemIndicador(n, valor){
+  return `<li data-id="${n.id}" tabindex="0">${badge(n.ods)}<span>${esc(n.nome)}</span><span class="v mono">${valor}</span></li>`;
+}
+function ligarLista(){
+  $('painel').querySelectorAll('[data-id]').forEach(li => {
+    li.addEventListener('click', () => selecionar(li.dataset.id));
+    li.addEventListener('keydown', e => { if (e.key === 'Enter') selecionar(li.dataset.id); });
+  });
+  const v = $('voltar'); if (v) v.addEventListener('click', () => selecionar(null));
+}
+const RODAPE = `<p class="rodape">Aresta quando |r| ≥ 0,3 e p &lt; 0,05 (Spearman sobre a média municipal de cada indicador, 2010–2025). Associação estatística: não indica causalidade, e o sinal não equivale a sinergia ou trade-off.</p>`;
+
+function painelGeral(){
+  const top = rankInter.slice(0, 8).map(id => itemIndicador(porId[id], fmt(porId[id].inter, 3))).join('');
+  const fora = nos.filter(n => n.com === 0).sort((a,b) => b.grau - a.grau || a.ods - b.ods);
+  const coms = [1,2,3,4].map(c => `<li style="cursor:default"><i class="sinal" style="background:${CORES_COM[c]}"></i><span>Comunidade ${c}</span><span class="v mono">${principal.filter(n => n.com === c).length}</span></li>`).join('');
+  $('painel').innerHTML = `
+    <h2>Como ler</h2>
+    <p class="nota">Cada nó é um indicador; cada linha, uma associação estatística entre dois indicadores nos 295 municípios. Tamanho do nó = centralidade de intermediação. Clique num indicador para ver suas associações.</p>
+    <h2>Maior intermediação</h2>
+    <ul class="lista">${top}</ul>
+    <h2>Comunidades (Louvain)</h2>
+    <ul class="lista">${coms}</ul>
+    <h2>Fora do componente principal (${fora.length})</h2>
+    <ul class="lista">${fora.map(n => itemIndicador(n, n.grau ? n.grau + ' assoc.' : 'isolado')).join('')}</ul>
+    ${RODAPE}`;
+  ligarLista();
+}
+
+function painelDetalhe(n){
+  const lig = [...vizinhos[n.id]].sort((a,b) => Math.abs(b.r) - Math.abs(a.r));
+  const pos = rankInter.indexOf(n.id);
+  const lista = lig.length
+    ? `<ul class="lista">${lig.map(v => { const m = porId[v.id];
+        return `<li data-id="${m.id}" tabindex="0"><i class="sinal ${v.r > 0 ? 'p' : 'n'}"></i><span>${esc(m.nome)} <span class="det-cod mono">ODS ${m.ods}</span></span><span class="v mono">${v.r > 0 ? '+' : '−'}${fmt(Math.abs(v.r), 2)}</span></li>`; }).join('')}</ul>`
+    : `<p class="nota">Nenhuma associação com este indicador atendeu aos critérios (|r| ≥ 0,3 e p &lt; 0,05).</p>`;
+  $('painel').innerHTML = `
+    <button class="voltar" id="voltar">← Visão geral</button>
+    <div class="det-topo">${badge(n.ods)}<span class="det-cod mono">${n.id}</span></div>
+    <p class="det-nome">${esc(n.nome)}</p>
+    <div class="metricas">
+      <div><span>Associações</span><b class="mono">${n.grau}</b></div>
+      <div><span>Comunidade</span><b>${n.com || '—'}</b></div>
+      <div><span>Intermediação</span><b class="mono">${n.com ? fmt(n.inter, 3) : '—'}</b></div>
+      <div><span>Posição</span><b class="mono">${pos >= 0 ? (pos + 1) + 'º de ' + rankInter.length : '—'}</b></div>
+      <div><span>Cobertura</span><b class="mono">${fmt(n.cob * 100, 1)}%</b></div>
+      <div><span>+ / −</span><b class="mono">${lig.filter(v => v.r > 0).length} / ${lig.filter(v => v.r < 0).length}</b></div>
+    </div>
+    <h2>Associações (${lig.length})</h2>
+    ${lista}
+    ${RODAPE}`;
+  ligarLista();
+}
+
+function selecionar(id){
+  selecionado = id;
+  id ? painelDetalhe(porId[id]) : painelGeral();
+  destacar();
+}
+
+// controles
+function grupo(ids, aoEscolher){
+  ids.forEach(id => $(id).addEventListener('click', () => {
+    ids.forEach(o => $(o).setAttribute('aria-pressed', o === id)); aoEscolher(id);
+  }));
+}
+grupo(['cor-com','cor-ods'], id => { modoCor = id === 'cor-ods' ? 'ods' : 'com'; pintar(); });
+grupo(['f-todas','f-pos','f-neg'], id => { filtro = {'f-todas':'todas','f-pos':'pos','f-neg':'neg'}[id]; destacar(); });
+
+// busca
+const semAcento = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const busca = $('busca'), sug = $('sugestoes');
+let achados = [], ativo = 0;
+function mostrarSugestoes(){
+  const q = semAcento(busca.value.trim());
+  achados = q ? nos.filter(n => semAcento(n.nome + ' ' + n.id).includes(q)).slice(0, 8) : [];
+  ativo = 0;
+  sug.hidden = !achados.length;
+  sug.innerHTML = achados.map((n, i) => `<li data-i="${i}" class="${i === 0 ? 'ativo' : ''}">${badge(n.ods)} ${esc(n.nome)}</li>`).join('');
+  sug.querySelectorAll('li').forEach(li => li.addEventListener('mousedown', e => { e.preventDefault(); escolher(+li.dataset.i); }));
+}
+function escolher(i){ const n = achados[i]; if (!n) return; busca.value = ''; sug.hidden = true; selecionar(n.id); }
+busca.addEventListener('input', mostrarSugestoes);
+busca.addEventListener('keydown', e => {
+  if (sug.hidden) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault(); ativo = (ativo + (e.key === 'ArrowDown' ? 1 : -1) + achados.length) % achados.length;
+    sug.querySelectorAll('li').forEach((li, i) => li.classList.toggle('ativo', i === ativo));
+  } else if (e.key === 'Enter') { e.preventDefault(); escolher(ativo); }
+  else if (e.key === 'Escape') sug.hidden = true;
+});
+busca.addEventListener('blur', () => setTimeout(() => sug.hidden = true, 100));
+
+// zoom e arraste
+const svg = $('rede');
+const VB0 = {x:0, y:0, w:1000, h:800};
+let vb = {...VB0};
+const aplicar = () => svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+function zoom(f, cx = vb.x + vb.w/2, cy = vb.y + vb.h/2){
+  const w = Math.min(1400, Math.max(180, vb.w * f)), k = w / vb.w;
+  vb = {x: cx - (cx - vb.x) * k, y: cy - (cy - vb.y) * k, w, h: vb.h * k}; aplicar();
+}
+function pontoSvg(e){
+  const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+svg.addEventListener('wheel', e => { e.preventDefault(); const p = pontoSvg(e); zoom(e.deltaY > 0 ? 1.12 : 1/1.12, p.x, p.y); }, {passive:false});
+let arraste = null;
+svg.addEventListener('pointerdown', e => {
+  if (e.target.closest('.no')) return;
+  arraste = {p: pontoSvg(e), moveu: false}; svg.setPointerCapture(e.pointerId); svg.classList.add('arrastando');
+});
+svg.addEventListener('pointermove', e => {
+  if (!arraste) return;
+  const p = pontoSvg(e);
+  vb.x -= p.x - arraste.p.x; vb.y -= p.y - arraste.p.y; arraste.moveu = true; aplicar();
+});
+svg.addEventListener('pointerup', () => {
+  if (arraste && !arraste.moveu && selecionado) selecionar(null);
+  arraste = null; svg.classList.remove('arrastando');
+});
+$('z-mais').addEventListener('click', () => zoom(1/1.25));
+$('z-menos').addEventListener('click', () => zoom(1.25));
+$('z-reset').addEventListener('click', () => { vb = {...VB0}; aplicar(); });
+
+pintar();
+painelGeral();
+destacar();
+</script>
+
+</body>
+</html>
